@@ -1,3 +1,14 @@
+<#
+Very Simple script to reconfigure all ServiceBus objects in a given resource group such that only
+a preallowed set of Public IP addresses are in the firewall section of the ServiceBus.  All
+non-approved IP addresses will be removed, and any missing allowed IP addresses will be
+added to the firewall. 
+
+Note:  This does not fully work yet. Update-AzKeyVaultNetworkRuleSet appears to REQUIRE both 
+an allowed Public IP AND a Virtual Network.  
+#>
+
+
 $AllowedIPAddresses = @(
     '8.8.8.8'
     '4.4.4.4'

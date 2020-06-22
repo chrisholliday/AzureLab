@@ -1,3 +1,10 @@
+<#
+Very Simple script to reconfigure all Keyvaults in a given resource group such that only
+a preallowed set of Public IP addresses are in the firewall section of the KeyVault.  All
+non-approved IP addresses will be removed, and any missing allowed IP addresses will be
+added to the firewall. 
+#>
+
 $AllowedIPAddresses = @(
     '8.8.8.8'
     '4.4.4.4'
@@ -6,6 +13,7 @@ $AllowedIPAddresses = @(
 )
 
 $rg = 'cjh1'
+
 
 $MyKeyVaults = Get-AzKeyVault -ResourceGroupName $rg
 foreach ($KeyVault in $MyKeyVaults) {
@@ -36,7 +44,6 @@ foreach ($KeyVault in $MyKeyVaults) {
     
     $Rules = $NetworkRuleSet.IpAddressRanges
     
-    Write-Output "hey"
     foreach ($IP in $Rules) {
      
         if ($IP -notin $AllowedIPAddresses) {

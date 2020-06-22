@@ -1,3 +1,10 @@
+<#
+Very Simple script to reconfigure all Storage Accounts in a given resource group such that only
+a preallowed set of Public IP addresses are in the firewall section of the Storage Accounts.  All
+non-approved IP addresses will be removed, and any missing allowed IP addresses will be
+added to the firewall. 
+#>
+
 $AllowedIPAddresses = @(
     '8.8.8.8'
     '4.4.4.4'

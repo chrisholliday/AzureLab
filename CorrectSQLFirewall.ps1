@@ -1,3 +1,9 @@
+<#
+Very Simple script to reconfigure all SQL Servers in a given resource group such that only
+a preallowed set of Public IP addresses are in the firewall section of the SQL Server.  All
+non-approved IP addresses will be removed, and any missing allowed IP addresses will be
+added to the firewall. 
+#>
 $StartIPAddresses = @(
     '8.8.8.8'
     '4.4.4.4'

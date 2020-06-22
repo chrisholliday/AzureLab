@@ -1,4 +1,11 @@
-$MyStorageAccounts = Get-AzStorageAccount -ResourceGroupName cjh1
+<#
+A simple script to populate the firewall of the Storage Account with sample IP information.
+I use this to help stage an object to test the 'correct' version of the script.
+#>
+
+$RG = cjh1
+
+$MyStorageAccounts = Get-AzStorageAccount -ResourceGroupName $RG
 
 foreach ($StorageAccount in $MyStorageAccounts) {
     $RG = $StorageAccount.ResourceGroupName

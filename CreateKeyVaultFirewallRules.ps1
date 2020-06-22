@@ -1,3 +1,8 @@
+<#
+A simple script to populate the firewall of the KeyVault with sample IP information.
+I use this to help stage an object to test the 'correct' version of the script.
+#>
+
 $MyKeyVaults = Get-AzKeyVault -ResourceGroupName cjh1
 
 foreach ($KeyVault in $MyKeyVaults) {

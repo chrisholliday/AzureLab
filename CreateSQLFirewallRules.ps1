@@ -1,3 +1,8 @@
+<#
+A simple script to populate the firewall of the SQL Server with sample IP information.
+I use this to help stage an object to test the 'correct' version of the script.
+#>
+
 $rg = cjh1
 
 $MySQLServers = Get-AzSqlServer -ResourceGroupName $rg
