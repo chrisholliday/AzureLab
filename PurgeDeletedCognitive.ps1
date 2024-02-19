@@ -3,8 +3,14 @@ param (
     [string] $Subscription = "Sub1"
 )
 
+#Requires -Version 7.4 #Tested only on Version 7.4
+
+
 Import-Module Az.Resources
 Import-Module Az.Accounts
+
+#Requires -Modules @{ ModuleName="Az.Resources"; ModuleVersion="0.12.0" }
+#Requires -Modules Az.Resources
 
 #Connect-AzAccount -Identity -Subscription $Subscription
 
