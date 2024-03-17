@@ -36,21 +36,7 @@ try {
         Write-Output "Starting puge of $OpenAIName"
         Remove-AzResource -ResourceId $DeletedObject.ResourceId -ApiVersion 2021-04-30 -Force | Out-Null
     }
-    Write-Output "waiting for objects to be deleted"
-    Start-Sleep -Seconds 300
-
-    foreach ($DeletedObject in $DeletedObjects){
-        if ($DeletedObject) {
-            Write-Output "Failed to purge $OpenAIName"
-        }
-        else {
-            if (not $DeletedObject) {
-                Write-Output "Deleted object $OpenAIName has been purged"
-            }
-        }
-    }
 }
-
 catch {
     Write-ErrorMessage
 }
