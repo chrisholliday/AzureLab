@@ -1,3 +1,4 @@
+[CmdletBinding()]
 <#
 .SYNOPSIS
     Deletes all objects within a given subscripiton
@@ -22,6 +23,7 @@ $exceptionlist = @(
 
 
 function Remove-BackupItems {
+    [CmdletBinding()]
     param (
         $BackupContainer,
         $vault,
@@ -47,6 +49,7 @@ function Remove-BackupItems {
 }
 
 function Remove-RecoveryServicesVault {
+    [CmdletBinding()]
     param (
         $VaultName,
         [string]$ResourceGroupName
@@ -93,7 +96,7 @@ function Remove-RecoveryServicesVault {
 }
 
 function Remove-OpenAIResource {
- 
+    [CmdletBinding()]
     param (
         [string]$ResourceGroupName,
         [string]$OpenAIResourceName
@@ -117,6 +120,7 @@ function Remove-OpenAIResource {
 }
 
 function Remove-PublicIPs {
+    [CmdletBinding()]
     param (
         $ResourceGroupName
     )
