@@ -13,10 +13,10 @@
 #>
 
 param (
-    [Parameter (Mandatory = $false)]
+    [Parameter (Mandatory)]
     $SubscriptionName = 'launchpad',
 
-    [paramater (Mandatory = $false)]
+    [paramater (Mandatory)]
     $tenant = 'myazuretenant'
 )
 
@@ -40,7 +40,12 @@ if ($Context.Subscription.Name -ne $SubscriptionName) {
     Exit
 }
 
+$allInScopeObjects = Get-AzResource | Where-Object {$_.ResourceGroupName -notin $exceptionlist}
+
 # delete app services
+
+
+
 # delete app service plans
 # delete ase objects
 
@@ -54,13 +59,16 @@ if ($Context.Subscription.Name -ne $SubscriptionName) {
 # 
 
 
-$allInScopeObjects = Get-AzResource | Where-Object {$_.ResourceGroupName -notin $exceptionlist}
 
 
-Write-Output 'Getting List of Resource Groups'
-$ResourceGroups = Get-AzResourceGroup -Name 'chris.holliday'
 
-$rgs = Get-AzResourceGroup | Where-Object $_.ResourceGroupName -NotIn $exceptionlist
+
+
+
+
+
+
+
 
 Write-Output 'Cycle through Resource Groups'
 for ($i = 1; $i -le 3; $i++) {
