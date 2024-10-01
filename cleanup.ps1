@@ -143,7 +143,12 @@ Write-Output 'Connecting to Azure'
 #Todo Add Connection 
 
 Write-Output 'Validating Subscription'
-#Todo Add Validation
+$Context = Get-AzContext
+if ($Context.Subscription.Name -ne 'Sub1') {
+    Write-Output "Failed to run against $SubscriptionName"
+    Exit-PSHostProcess
+    Exit
+}
 
 Write-Output 'Getting List of Resource Groups'
 $ResourceGroups = Get-AzResourceGroup -Name 'chris.holliday'
