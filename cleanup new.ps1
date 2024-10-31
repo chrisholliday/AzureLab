@@ -20,11 +20,86 @@ param (
     $tenant = 'myazuretenant'
 )
 
+function Remove-BackupItems {
+    [CmdletBinding()]
+    param (
+        $BackupContainer,
+        $vault,
+        [String]$Type
+    )
+    Write-Output "Setting Vault Context for $($vault.name)"
+    Set-AzRecoveryServicesVaultContext -Vault $Vault
+
+    foreach ($Container in $BackupContainer) {
+        If ($Type = 'VM') {
+            $BackupItems = Get-AzRecoveryServicesBackupItem -Container $Container -WorkloadType AzureVM
+        }
+        Else {
+            $BackupItems = Get-AzRecoveryServicesBackupItem -Container $Container
+        }
+        foreach ($Item in $BackupItems) {
+            # Stop-AzRecoveryServicesBackupJob -Item $Item -Force
+            Write-Output "Attemping to delete $($item.ContainerName)"
+            Disable-AzRecoveryServicesBackupProtection -Item $Item -RemoveRecoveryPoints -Force
+            Unregister-AzRecoveryServicesBackupContainer -Container $Container -Force #-WorkloadType AzureVM
+        }
+    }
+}
+
+function Remove-RecoveryServicesVault {
+    [CmdletBinding()]
+    param (
+        $VaultName,
+        [string]$ResourceGroupName
+    )
+
+    # Get the Recovery Services vault
+    $Vault = Get-AzRecoveryServicesVault -ResourceGroupName $ResourceGroupName -Name $VaultName
+
+    # Disable soft delete
+    Write-Output "Disabling soft delete on $($Vault.Name)"
+    Set-AzRecoveryServicesVaultProperty -VaultId $Vault.ID -SoftDeleteFeatureState Disable | Out-Null
+
+    # Get all VM container objects in the vault and delete them
+    $VM_Container = Get-AzRecoveryServicesBackupContainer -VaultId $vault.ID -ContainerType AzureVM
+    Write-Output "Attempting to delete container $($VM_Container.Name)"
+    If ($VM_Container) {
+        Remove-BackupItems -BackupContainer $VM_Containers -Vault $Vault -Type VM
+    }
+
+    $SQL_Container = Get-AzRecoveryServicesBackupContainer -VaultId $vault.ID -ContainerType AzureSQL
+    If ($SQL_Container) {
+        Remove-BackupItems -BackupContainer $SQL_Container -Vault $Vault
+    }
+
+    $Storage_Container = Get-AzRecoveryServicesBackupContainer -VaultId $vault.ID -ContainerType AzureStorage
+    If ($Storage_Container) {
+        Remove-BackupItems -BackupContainer $Storage_Container -Vault $Vault
+    }
+
+    $App_Container = Get-AzRecoveryServicesBackupContainer -VaultId $vault.ID -ContainerType AzureVMAppContainer
+    If ($App_Container) {
+        Remove-BackupItems -BackupContainer $App_Container -Vault $Vault
+    }
+
+    $Windows_Container = Get-AzRecoveryServicesBackupContainer -VaultId $vault.ID -ContainerType Windows -BackupManagementType MAB
+    If ($Windows_Container) {
+        Remove-BackupItems -BackupContainer $Windows_Container -Vault $Vault
+    }
+    # Remove the Recovery Services vault
+    If ($i -gt 1) {
+        Write-Output "Attempting to delete $($Vault.Name)"
+        Remove-AzRecoveryServicesVault -Vault $Vault
+    }
+}
+
+
+
 
 #Defining any Variables
 
 # These resource groups will be excluded from consideration in this script
-$exceptionlist = @(
+$exemptrg = @(
     'Resource Group 1',
     'Resource Group 2',
     'My test Group'
@@ -40,122 +115,78 @@ if ($Context.Subscription.Name -ne $SubscriptionName) {
     Exit
 }
 
-$allInScopeObjects = Get-AzResource | Where-Object {$_.ResourceGroupName -notin $exceptionlist}
+Write-Output 'Deleting Resource Locks'
+Get-AzResourceLock -ResourceGroupName $ResourceGroupName | Where-Object { $_.ResourceGroupName -notin $exemptrg } |
+    Remove-AzResourceLock -Force -WhatIf
 
-# delete app services
-
-
-
-# delete app service plans
-# delete ase objects
-
-# unregister public ips
-# unregister nsg
-# unregister route table
-
-# remove ai deployments
-# remove ai objects
-
-# 
-
-
-
-
-
-
-
-
-
-
-
-
-
-Write-Output 'Cycle through Resource Groups'
-for ($i = 1; $i -le 3; $i++) {
-    # Cycle through 3 times
-
-    Write-Output "Pass $i"
-    foreach ($ResourceGroup in $ResourceGroups) {
-        #Delete all objects in all resource groups
-        $ResourceGroupName = $ResourceGroup.ResourceGroupName
-
-        # check for locks
-        Write-Output 'Remove Resource Group Lock if exist'
-        Try {
-
-            Get-AzResourceLock -ResourceGroupName $ResourceGroupName | Remove-AzResourceLock -Force
-        }
-        catch {
-            Write-Error "Failed to delete resource lock for RG - $ResourcegroupName"       
-        }
-
-        # begin attempts to delete objects
-
-        Write-Output 'Check for Recovery Services Vaults and delete them'
-        if ($Vaults = Get-AzRecoveryServicesVault -ResourceGroupName $ResourceGroupName) {
-            foreach ($vault in $Vaults) {
-                Remove-RecoveryServicesVault -VaultName $vault.Name -ResourceGroupName $ResourceGroupName
-            }
-        }
-
-        Write-Output 'Check for OpenAI objects and delete them'
-        if ($OpenAIResource = Get-AzResource -ResourceGroupName $ResourceGroupName -ResourceType 'Microsoft.CognitiveServices/accounts') {
-            Remove-OpenAIResource -ResourceGroupName $ResourceGroupName -OpenAIResourceName $OpenAIResource.Name
-        }
-
-        Write-Output ''
-        #todo  delete all app services and function app objects before deleting ASPs
-
-        #todo delete all ASPs before deleting ASE objects
-
-        #todo remove route table and nsg from subnets
-
-
-        Write-Output 'Remove all Public IP Addresses'
-        Remove-PublicIPs -ResourceGroupName $ResourceGroup.ResourceGroupName
-
-        Get-AzPublicIpAddress -ResourceGroupName $ResourceGroupName | Remove-AzPublicIpAddress -Force
-
-        Write-Output "Get List of Objects in $ResourceGroupName"
-        $ResourceGroupObjects = Get-AzResource -ResourceGroupName $ResourceGroupName
-
-        Write-Output 'Get Number of Objects'
-        $ObjectCount = $ResourceGroupObjects.count
-      
-        if ($ObjectCount -gt 0) {
-            foreach ($resource in $ResourceGroupObjects) {
-
-                try {
-                    Write-Output "Trying to Delete $($resource.name)"
-                    Remove-AzResource -ResourceId $resource.Id -Force
-                }
-                catch {
-                    throw "Error deleting $($resource.ID) `n $($_.Exception)"
-                }
-                Finally {
-                    if (-not (Get-AzResource -ResourceId $($resource.id) -ErrorAction SilentlyContinue)) {
-                        Write-Output "DELETED: Resource $($resource.Name)"
-                    }
-                    else {
-                        Write-Output "Failed to Delete $($resource.name)"
-                    }
-                } 
-                #Purge-SoftDeletedKeyVaults -ResourceGroupName $ResourceGroupName
-            }
-        }
+Write-Output 'Check for Recovery Services Vaults and delete them'
+if ($Vaults = Get-AzRecoveryServicesVault | Where-Object { $_.ResourceGroupName -notin $exemptrg }) {
+    foreach ($vault in $Vaults) {
+        Remove-RecoveryServicesVault -VaultName $vault.Name -ResourceGroupName $ResourceGroupName
     }
 }
 
+Write-Output 'Deleting Web Objects'
+Get-AzWebApp | Where-Object { $_.ResourceGroupName -notin $exemptrg } # | Remove-AzResource -Force -WhatIf
+Get-AzAppServicePlan | Where-Object { $_.ResourceGroupName -notin $exemptrg } # | Remove-AzResource -Force -WhatIf
+Get-AzAppServiceEnvironment | Where-Object { $_.ResourceGroupName -notin $exemptrg } # | Remove-AzResource -Force -WhatIf
 
-$accounts = Get-AzCognitiveServicesAccount
 
-foreach ($account in $accounts){
-    $Deployments = Get-AzCognitiveServicesAccountDeployment -AccountName $account.AccountName -ResourceGroupName $account.ResourceGroupName
-    
-    foreach ($deployment in $Deployments){
-        Remove-AzCognitiveServicesAccountDeployment -AccountName $account.AccountName -ResourceGroupName $account.ResourceGroupName -Name $deployment.Name -Force
+Write-Output 'Deleting Network Components'
+$networkInterfaces = Get-AzNetworkInterface | Where-Object { $_.ResourceGroupName -notin $exemptrg }
+foreach ($networkInterface in $networkInterfaces.IpConfigurations) {
+    if ($null -ne $networkInterface.PublicIpAddress) {
+        # Disassociate the public IP address
+        $networkInterface.PublicIpAddress = $null
+        Set-AzNetworkInterface -NetworkInterface $networkInterface -WhatIf
+        # Write-Output "Disassociated public IP from NIC: $($networkInterface.Name)"
     }
-    Remove-AzCognitiveServicesAccount -ResourceGroupName $account.ResourceGroupName -Name $account.AccountName
-    # Remove-AzCognitiveServicesAccountDeployment -AccountName $account.AccountName -ResourceGroupName $account.ResourceGroupName -Name -Force
-
 }
+
+$VirtualNetworks = Get-AzVirtualNetwork | Where-Object { $_.ResourceGroupName -notin $exemptrg }
+foreach ($VirtualNetwork in $VirtualNetworks) {
+    foreach ($subnet in $VirtualNetwork.Subnets) {
+        $params = @{
+            Name                 = $subnet.Name
+            VirtualNetwork       = $VirtualNetwork.Name
+            AddressPrefix        = $subnet.AddressPrefix
+            NetworkSecurityGroup = $null
+            RouteTable           = $null
+        }
+       
+        Set-AzVirtualNetworkSubnetConfig -$params -WhatIf
+    }
+}
+
+# Get-AzPublicIpAddress | Where-Object { $_.ResourceGroupName -notin $exemptrg } | Remove-AzResource -Force -WhatIf
+
+Write-Output 'Deleting OpenAI components'
+$cognitiveServicesResources = Get-AzResource -ResourceType 'Microsoft.CognitiveServices/accounts' |
+    Where-Object { $_.ResourceGroupName -notin $exemptrg }
+
+# Loop through each resource
+foreach ($resource in $cognitiveServicesResources) {
+    # Retrieve the endpoint and API key for the OpenAI resource
+    $resourceProperties = Get-AzCognitiveServicesAccount -ResourceGroupName $resource.ResourceGroupName -Name $resource.Name
+    $endpoint = $resourceProperties.Endpoint
+    $apiKey = (Get-AzCognitiveServicesAccountKey -ResourceGroupName $resource.ResourceGroupName -Name $resource.Name).Key1
+
+    # List the deployed models
+    $uri = "$endpoint/openai/models?api-version=2024-06-01"
+    $headers = @{
+        'api-key' = $apiKey
+    }
+    $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+
+    # Delete each deployed model
+    foreach ($model in $response.data) {
+        $modelUri = "$endpoint/openai/models/$($model.id)?api-version=2024-06-01"
+        Invoke-RestMethod -Uri $modelUri -Headers $headers -Method Delete
+    }
+
+    # Delete the Cognitive Services resource
+    Remove-AzResource -ResourceId $resource.ResourceId -Force
+}
+
+Write-Output "Deleting everything else"
+Get-AzResource | Where-Object { $_.ResourceGroupName -notin $exceptionlist } | Remove-AzResource -Force -WhatIf
