@@ -14,10 +14,10 @@
 
 param (
     [Parameter (Mandatory)]
-    $SubscriptionName = 'launchpad',
+    $SubscriptionName = 'mysub',
 
     [paramater (Mandatory)]
-    $tenant = 'myazuretenant'
+    $tenant = 'foo.onmicrosoft.com'
 )
 
 function Remove-BackupItems {
@@ -100,9 +100,8 @@ function Remove-RecoveryServicesVault {
 
 # These resource groups will be excluded from consideration in this script
 $exemptrg = @(
-    'Resource Group 1',
-    'Resource Group 2',
-    'My test Group'
+    'ResourceGroup1',
+    'ResourceGroup2'
 )
 
 Write-Output 'Connecting to Azure'
@@ -116,22 +115,23 @@ if ($Context.Subscription.Name -ne $SubscriptionName) {
 }
 
 Write-Output 'Deleting Resource Locks'
-Get-AzResourceLock -ResourceGroupName $ResourceGroupName | Where-Object { $_.ResourceGroupName -notin $exemptrg } |
-    Remove-AzResourceLock -Force -WhatIf
+Get-AzResourceLock | Where-Object { $_.ResourceGroupName -notin $exemptrg } | Remove-AzResourceLock -Force | Out-Null
 
 Write-Output 'Check for Recovery Services Vaults and delete them'
 if ($Vaults = Get-AzRecoveryServicesVault | Where-Object { $_.ResourceGroupName -notin $exemptrg }) {
     foreach ($vault in $Vaults) {
-        Remove-RecoveryServicesVault -VaultName $vault.Name -ResourceGroupName $ResourceGroupName
+        Set-AzRecoveryServicesVaultProperty -VaultId $Vault.ID -SoftDeleteFeatureState Disable | Out-Null
+        # Remove-RecoveryServicesVault -VaultName $vault.Name -ResourceGroupName $vault.ResourceGroupName
     }
 }
 
 Write-Output 'Deleting Web Objects'
-Get-AzWebApp | Where-Object { $_.ResourceGroupName -notin $exemptrg } # | Remove-AzResource -Force -WhatIf
-Get-AzAppServicePlan | Where-Object { $_.ResourceGroupName -notin $exemptrg } # | Remove-AzResource -Force -WhatIf
-Get-AzAppServiceEnvironment | Where-Object { $_.ResourceGroupName -notin $exemptrg } # | Remove-AzResource -Force -WhatIf
+Get-AzWebApp | Where-Object { $_.ResourceGroupName -notin $exemptrg } | Remove-AzResource -Force
+Get-AzAppServicePlan | Where-Object { $_.ResourceGroupName -notin $exemptrg } | Remove-AzResource -Force
+Get-AzAppServiceEnvironment | Where-Object { $_.ResourceGroupName -notin $exemptrg } | Remove-AzResource -Force
 
 
+#doesn't work, problems with networkinterface var
 Write-Output 'Deleting Network Components'
 $networkInterfaces = Get-AzNetworkInterface | Where-Object { $_.ResourceGroupName -notin $exemptrg }
 foreach ($networkInterface in $networkInterfaces.IpConfigurations) {
@@ -143,6 +143,8 @@ foreach ($networkInterface in $networkInterfaces.IpConfigurations) {
     }
 }
 
+
+#doesn't work problems with hashtable
 $VirtualNetworks = Get-AzVirtualNetwork | Where-Object { $_.ResourceGroupName -notin $exemptrg }
 foreach ($VirtualNetwork in $VirtualNetworks) {
     foreach ($subnet in $VirtualNetwork.Subnets) {
@@ -154,7 +156,7 @@ foreach ($VirtualNetwork in $VirtualNetworks) {
             RouteTable           = $null
         }
        
-        Set-AzVirtualNetworkSubnetConfig -$params -WhatIf
+        Set-AzVirtualNetworkSubnetConfig @params -WhatIf
     }
 }
 
@@ -188,5 +190,5 @@ foreach ($resource in $cognitiveServicesResources) {
     Remove-AzResource -ResourceId $resource.ResourceId -Force
 }
 
-Write-Output "Deleting everything else"
-Get-AzResource | Where-Object { $_.ResourceGroupName -notin $exceptionlist } | Remove-AzResource -Force -WhatIf
+Write-Output 'Deleting everything else'
+Get-AzResource | Where-Object { $_.ResourceGroupName -notin $exceptionlist } | Remove-AzResource -Force
