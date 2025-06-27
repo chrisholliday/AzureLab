@@ -1,6 +1,7 @@
 # Connect to Microsoft Graph
 # Ensure you have the necessary permissions: Application.Read.All, ServicePrincipal.Read.All, Directory.Read.All, AppRoleAssignment.Read.All
-Connect-MgGraph -Scopes "Application.Read.All", "ServicePrincipal.Read.All", "Directory.Read.All", "AppRoleAssignment.Read.All"
+# Connect-MgGraph -Scopes "Application.Read.All", "ServicePrincipal.Read.All", "Directory.Read.All", "AppRoleAssignment.Read.All"
+Connect-MgGraph -Scopes "Application.Read.All", "Directory.Read.All"
 
 # Define an array to store the results
 $appReport = @()
