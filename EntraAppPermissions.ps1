@@ -12,7 +12,7 @@
 .NOTES
     Author: Gemini
     Date: July 2, 2025
-    Version: 1.4 (UPN for Owners)
+    Version: 1.6 (Fixed OData Type Access)
 
 .PREREQUISITES
     - PowerShell 5.1 or later (Windows) / PowerShell 7+ (cross-platform)
@@ -97,6 +97,7 @@ function Get-ServicePrincipalName {
 
 # Function to get permission name from GUID
 $permissionCache = @{} # Cache for permission names
+
 function Get-PermissionName {
     param (
         [string]$AppId,
@@ -110,12 +111,27 @@ function Get-PermissionName {
     }
 
     try {
-        $sp = Get-MgServicePrincipal -Filter "appId eq '$AppId'" -ErrorAction SilentlyContinue
+        # Always select the first matching service principal
+        $sp = Get-MgServicePrincipal -Filter "appId eq '$AppId'" -Property "Id,DisplayName,AppRoles,Oauth2PermissionScopes" -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($sp) {
-            if ($PermissionType -eq "Scope") {
-                $permission = $sp.Oauth2PermissionScopes | Where-Object { $_.Id -eq $PermissionId } | Select-Object -ExpandProperty Value
-            } elseif ($PermissionType -eq "AppRole") {
-                $permission = $sp.AppRoles | Where-Object { $_.Id -eq $PermissionId } | Select-Object -ExpandProperty Value
+            if ($PermissionType -eq "Scope" -and $sp.Oauth2PermissionScopes) {
+                $permissionObj = $sp.Oauth2PermissionScopes | Where-Object { $_.Id -eq $PermissionId }
+                if ($permissionObj) {
+                    $permission = $permissionObj.Value
+                    # Optionally include display name for clarity
+                    if ($permissionObj.DisplayName -and $permissionObj.DisplayName -ne $permission) {
+                        $permission = "$($permissionObj.DisplayName) ($permission)"
+                    }
+                }
+            } elseif ($PermissionType -eq "AppRole" -and $sp.AppRoles) {
+                $permissionObj = $sp.AppRoles | Where-Object { $_.Id -eq $PermissionId }
+                if ($permissionObj) {
+                    $permission = $permissionObj.Value
+                    # Optionally include display name for clarity
+                    if ($permissionObj.DisplayName -and $permissionObj.DisplayName -ne $permission) {
+                        $permission = "$($permissionObj.DisplayName) ($permission)"
+                    }
+                }
             }
 
             if ($permission) {
@@ -124,11 +140,97 @@ function Get-PermissionName {
             }
         }
     } catch {
-        # Error getting service principal or permission details
+        Write-Warning "Error resolving permission for AppId $AppId, PermissionId $PermissionId, Type  "      # ...existing code...
+            catch {
+                # Error getting service principal or permission details
+                Write-Warning "Error resolving permission for AppId $AppId, PermissionId $PermissionId, Type $PermissionType "               # ...existing code...
+                
+                # Static mapping for common Microsoft Graph permissions (add more as needed)
+                    $graphPermissionMap = @{
+                        # AppRole (Application permissions)
+                        "62a82d76-70ea-41e2-9197-370581804d09" = "User.Read.All"
+                        "df021288-bdef-4463-88db-98f22de89214" = "Directory.Read.All"
+                        "19dbc75e-c2e2-444c-a770-ec69d8559fc7" = "Directory.ReadWrite.All"
+                        "06da0dbc-49e2-44d2-8312-53f166ab848a" = "User.ReadWrite.All"
+                        "7ab1d382-f21e-4acd-a863-ba3e13f7da61" = "Group.Read.All"
+                        "5b567255-7703-4780-807c-7be8301ae99b" = "Group.ReadWrite.All"
+                        "dc50a0fb-09a3-484d-be87-e023b12c6440" = "Application.Read.All"
+                        "18a4783c-866b-4cc7-a460-3d5e5662c884" = "Application.ReadWrite.All"
+                        "dfabfca6-ee36-4c39-95a5-2a7b6b82d54b" = "Policy.Read.All"
+                        "b1aaf6be-5c63-44b2-bae4-9d7c3b6b8baf" = "Policy.ReadWrite.ConditionalAccess"
+                        "134fd756-38ce-4afd-ba33-e9623dbe66c2" = "AdministrativeUnit.Read.All"
+
+                        # Oauth2PermissionScopes (Delegated permissions)
+                        "e1fe6dd8-ba31-4d61-89e7-88639da4683d" = "User.Read"
+                        "b340eb25-3456-403f-be2f-af7a0d370277" = "Directory.AccessAsUser.All"
+                        "a154be20-db9c-4678-8ab7-66f6cc099a59" = "Mail.Read"
+                        "64a6cdd6-aab1-4aaf-94b6-9b34e9620c7a" = "Mail.ReadWrite"
+                        "10465720-29dd-4523-a11a-6a75c743c9d9" = "Calendars.Read"
+                        "e2a3a72e-5f79-4c64-b1b1-878b674786c9" = "Files.Read"
+                        "863451e7-0667-486c-a5d6-d135439485f0" = "Files.ReadWrite"
+                        # Add more as needed...
+                }
+                
+                function Get-PermissionName {
+                    param (
+                        [string]$AppId,
+                        [string]$PermissionId,
+                        [string]$PermissionType # "Scope" for delegated, "AppRole" for application
+                    )
+                
+                    $cacheKey = "$AppId-$PermissionId-$PermissionType"
+                    if ($permissionCache.ContainsKey($cacheKey)) {
+                        return $permissionCache[$cacheKey]
+                    }
+                
+                    try {
+                        $sp = Get-MgServicePrincipal -Filter "appId eq '$AppId'" -Property "Id,DisplayName,AppRoles,Oauth2PermissionScopes" -ErrorAction SilentlyContinue | Select-Object -First 1
+                        if ($sp) {
+                            if ($PermissionType -eq "Scope" -and $sp.Oauth2PermissionScopes) {
+                                $permissionObj = $sp.Oauth2PermissionScopes | Where-Object { $_.Id -eq $PermissionId }
+                                if ($permissionObj) {
+                                    $permission = $permissionObj.Value
+                                    if ($permissionObj.DisplayName -and $permissionObj.DisplayName -ne $permission) {
+                                        $permission = "$($permissionObj.DisplayName) ($permission)"
+                                    }
+                                }
+                            } elseif ($PermissionType -eq "AppRole" -and $sp.AppRoles) {
+                                $permissionObj = $sp.AppRoles | Where-Object { $_.Id -eq $PermissionId }
+                                if ($permissionObj) {
+                                    $permission = $permissionObj.Value
+                                    if ($permissionObj.DisplayName -and $permissionObj.DisplayName -ne $permission) {
+                                        $permission = "$($permissionObj.DisplayName) ($permission)"
+                                    }
+                                }
+                            }
+                
+                            if ($permission) {
+                                $permissionCache[$cacheKey] = $permission
+                                return $permission
+                            }
+                        }
+                    } catch {
+                        Write-Warning "Error resolving permission for AppId $AppId, PermissionId $PermissionId, Type $PermissionType $($_.Exception.Message)"
+                    }
+                
+                    # Fallback for Microsoft Graph well-known permissions
+                    if ($AppId -eq "00000003-0000-0000-c000-000000000000" -and $graphPermissionMap.ContainsKey($PermissionId)) {
+                        $permission = $graphPermissionMap[$PermissionId]
+                        $permissionCache[$cacheKey] = $permission
+                        return $permission
+                    }
+                
+                    $permissionCache[$cacheKey] = "Unknown Permission ($PermissionId)"
+                    return "Unknown Permission ($PermissionId)"
+                }
+                # ...existing code... $($_.Exception.Message)"
+            }
+        # ...existing code... $($_.Exception.Message)"
     }
     $permissionCache[$cacheKey] = "Unknown Permission ($PermissionId)"
     return "Unknown Permission ($PermissionId)"
 }
+# ...existing code...
 
 # Function to get user principal name from GUID (with caching)
 $userPrincipalNameCache = @{} # Cache for user principal names
@@ -183,7 +285,7 @@ foreach ($app in $applications) {
                     $owners += $owner.DisplayName
                 }
                 # If DisplayName is not available, check if it's a user and try to get UPN
-                elseif ($owner.PSObject.Properties.Name -contains "@odata.type" -and $owner."@odata.type" -eq '#microsoft.graph.user') {
+                elseif ($owner.PSObject.Properties.Name -contains "@odata.type" -and $owner.'@odata.type' -eq '#microsoft.graph.user') {
                     $owners += (Get-UserPrincipalName -UserId $owner.Id)
                 }
                 # Fallback to Id if DisplayName is not available and not a user, or UPN not found
@@ -308,6 +410,7 @@ Write-Host "`nExporting report to '$outputPath'..."
 $report | Export-Csv -Path $outputPath -NoTypeInformation -Encoding UTF8 -Force
 Write-Host "Report exported successfully."
 
-Write-Host "`nScript finished. Disconnecting from Microsoft Graph."
+<# Write-Host "`nScript finished. Disconnecting from Microsoft Graph."
 Disconnect-MgGraph
 #endregion
+#>
