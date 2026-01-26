@@ -1,58 +1,56 @@
 {
-  "properties": {
-    "displayName": "Deny Cognitive Services except Computer Vision and Speech",
-    "policyType": "Custom",
-    "mode": "All",
-    "description": "Denies the creation of Azure Cognitive Services resources except for Computer Vision and Speech Services. This policy helps enforce organizational standards for AI/ML service consumption.",
-    "metadata": {
-      "version": "1.0.0",
-      "category": "Cognitive Services",
-      "createdBy": "Azure Security Team",
-      "createdOn": "2025-12-11T00:00:00Z",
-      "updatedBy": "Azure Security Team",
-      "updatedOn": "2025-12-11T00:00:00Z"
-    },
-    "parameters": {
-      "effect": {
-        "type": "String",
-        "metadata": {
-          "displayName": "Effect",
-          "description": "Enable or disable the execution of the policy"
-        },
-        "allowedValues": [
-          "Deny",
-          "Disabled"
-        ],
-        "defaultValue": "Deny"
+  "displayName": "Deny Cognitive Services except Computer Vision and Speech",
+  "policyType": "Custom",
+  "mode": "All",
+  "description": "Denies the creation of Azure Cognitive Services resources except for Computer Vision and Speech Services. This policy helps enforce organizational standards for AI/ML service consumption.",
+  "metadata": {
+    "version": "1.0.0",
+    "category": "Cognitive Services",
+    "createdBy": "Azure Security Team",
+    "createdOn": "2025-12-11T00:00:00Z",
+    "updatedBy": "Azure Security Team",
+    "updatedOn": "2025-12-11T00:00:00Z"
+  },
+  "parameters": {
+    "effect": {
+      "type": "String",
+      "metadata": {
+        "displayName": "Effect",
+        "description": "Enable or disable the execution of the policy"
       },
-      "allowedCognitiveServiceKinds": {
-        "type": "Array",
-        "metadata": {
-          "displayName": "Allowed Cognitive Service Kinds",
-          "description": "List of allowed Cognitive Services kinds"
-        },
-        "defaultValue": [
-          "ComputerVision",
-          "Speech"
-        ]
-      }
+      "allowedValues": [
+        "Deny",
+        "Disabled"
+      ],
+      "defaultValue": "Deny"
     },
-    "policyRule": {
-      "if": {
-        "allOf": [
-          {
-            "field": "type",
-            "equals": "Microsoft.CognitiveServices/accounts"
-          },
-          {
-            "field": "Microsoft.CognitiveServices/accounts/kind",
-            "notIn": "[parameters('allowedCognitiveServiceKinds')]"
-          }
-        ]
+    "allowedCognitiveServiceKinds": {
+      "type": "Array",
+      "metadata": {
+        "displayName": "Allowed Cognitive Service Kinds",
+        "description": "List of allowed Cognitive Services kinds"
       },
-      "then": {
-        "effect": "[parameters('effect')]"
-      }
+      "defaultValue": [
+        "ComputerVision",
+        "Speech"
+      ]
+    }
+  },
+  "policyRule": {
+    "if": {
+      "allOf": [
+        {
+          "field": "type",
+          "equals": "Microsoft.CognitiveServices/accounts"
+        },
+        {
+          "field": "Microsoft.CognitiveServices/accounts/kind",
+          "notIn": "[parameters('allowedCognitiveServiceKinds')]"
+        }
+      ]
+    },
+    "then": {
+      "effect": "[parameters('effect')]"
     }
   }
 }
